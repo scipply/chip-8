@@ -1,0 +1,7 @@
+.vscode
+chip8-roms
+src
+SDL2.dll
+*.exe
+*.ch8
+
