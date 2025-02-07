@@ -4,4 +4,4 @@ src
 SDL2.dll
 *.exe
 *.ch8
-
+*.bat
