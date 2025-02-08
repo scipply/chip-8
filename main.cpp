@@ -29,6 +29,8 @@ namespace Config
 	constexpr uint32_t fgColor = 0x00098fe8;
 	constexpr int scaleFac = 18;
 	int normalClockSpeed = 601;
+	int maxClockSpeedMp = 3.0f;
+	int minClockSpeedMp = 0.25f;
 	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
@@ -38,8 +40,6 @@ namespace Config
 namespace Global
 {
 	int clockSpeed = Config::normalClockSpeed;
-	int maxClockSpeedMp = 3.0f;
-	int minClockSpeedMp = 0.25f;
 }
 
 namespace Random
@@ -481,23 +481,34 @@ public:
 			// Getting the keypresses
 			case 0x0A:
 			{
-				m_V[X] = m_delayTimer;
 				DEBUG_LOG("Await for keypresses and then store it in V[%01X]", X);
-
-				bool keyPressed = false;
-				uint8_t key = 0xFF;
+				
+				static bool keyPressed = false;
+				// Since the keys go up to 0x0F, 0xFF can be used like null
+				static uint8_t key = 0xFF;
 
 				for (uint8_t i = 0; key == 0xFF && i < keypad.size(); i++) 
                     if (keypad[i]) 
 					{
+						keyPressed = true;
                         key = i;
-                        keyPressed = true;
                         break;
                     }
 				
-				// If no key has been pressed yet, keep getting the current opcode & running this instruction
-                if (!keyPressed)
+				// If no key has been pressed yet or it is held, keep getting 
+				// the current opcode
+				if (!keyPressed || !keypad[key])
+				{
 					m_PC -= 2;
+				}
+				else
+				{
+					m_V[X] = key;
+					
+					keyPressed = false;
+					key = 0xFF;
+				}
+				
 				break;
 			}
 			// setting the delay timer
@@ -652,12 +663,12 @@ void loop(sdl_t& sdl, Chip8& chip8)
 					break;
 				
 				case SDLK_PERIOD:
-					if (Global::clockSpeed + 100 < Config::normalClockSpeed * Global::maxClockSpeedMp)
+					if (Global::clockSpeed + 100 < Config::normalClockSpeed * Config::maxClockSpeedMp)
 						Global::clockSpeed += 100;
 					break;
 
 				case SDLK_COMMA:
-					if (Global::clockSpeed - 100 > Config::normalClockSpeed * Global::minClockSpeedMp)
+					if (Global::clockSpeed - 100 > Config::normalClockSpeed * Config::minClockSpeedMp)
 						Global::clockSpeed -= 100;
 					break;
 				
