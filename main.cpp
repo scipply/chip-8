@@ -189,6 +189,7 @@ public:
 		m_opcode = ((*m_ram)[m_PC] << 8) | ((*m_ram)[m_PC + 1]);
 		m_PC += 2;
 
+		bool carry = false;
 		uint16_t NNN = m_opcode & 0x0FFF;
 		uint8_t NN = m_opcode & 0x00FF;
 		uint8_t N = m_opcode & 0x000F;
@@ -297,46 +298,65 @@ public:
 			{
 			case 0x0:
 				m_V[X] = m_V[Y];
+
 				DEBUG_LOG("V[%01X] = V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x1:
 				m_V[X] |= m_V[Y];
+
 				DEBUG_LOG("V[%01X] |= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x2:
 				m_V[X] &= m_V[Y];
+
 				DEBUG_LOG("V[%01X] &= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x3:
 				m_V[X] ^= m_V[Y];
+
 				DEBUG_LOG("V[%01X] ^= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x4:
+				carry = (static_cast<uint16_t>(m_V[X]) + m_V[Y]) > 255;
 				m_V[X] += m_V[Y];
+				m_V[0xF] = carry;
+
 				DEBUG_LOG("V[%01X] += V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x5:
+				carry = m_V[X] >= m_V[Y];
 				m_V[X] -= m_V[Y];
+				m_V[0xF] = carry;
+
 				DEBUG_LOG("V[%01X] -= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x6:
+				carry = m_V[X] & 1;
 				m_V[X] >>= 1;
+				m_V[0xF] = carry;
+
 				DEBUG_LOG("V[%01X] >>= 1 = %01X", X, m_V[X]);
 				break;
 
 			case 0x7:
+				carry = m_V[X] <= m_V[Y];
 				m_V[X] = m_V[Y] - m_V[X];
+				m_V[0xF] = carry;
+
 				DEBUG_LOG("V[%01X] = V[%01X] - V[%01X] = %01X", X, Y, X, m_V[X]);
 				break;
 
 			case 0xE:
+				carry = m_V[X] >> 7;
 				m_V[X] <<= 1;
+				m_V[0xF] = carry;
+
 				DEBUG_LOG("V[%01X] <<= 1 = %01X", X, m_V[X]);
 				break;
 			
@@ -566,7 +586,7 @@ void drawInfo(SDL_Surface* surf, Chip8& chip8)
 }
 
 // Shotting screenshot function
-void shootScreenshot(SDL_Surface* surf)
+void shootScreenshot(sdl_t& sdl)
 {
 	if (!std::filesystem::exists(Config::ssDir))
 		if (!std::filesystem::create_directory(Config::ssDir))
@@ -583,10 +603,11 @@ void shootScreenshot(SDL_Surface* surf)
 
     time(&tm);
     tmInfo = localtime(&tm);
-    strftime(buffer, sizeof(buffer), "%d_%m_%Y_%H-%M-%S", tmInfo);
+    strftime(buffer, sizeof(buffer), "%d_%m_%Y_%H-%M", tmInfo);
 
     snprintf(ssPath, sizeof(ssPath), "%s/%s_%s.bmp", Config::ssDir, Config::ssPrefix, buffer);
 
+	SDL_Surface* surf = SDL_GetWindowSurface(sdl.window);
 	SDL_SaveBMP(surf, ssPath);
 
     SDL_Log("Saved screenshot to \"%s\"\n", ssPath);
@@ -606,6 +627,7 @@ void loop(sdl_t& sdl, Chip8& chip8)
 	while (running)
 	{
 		const double startFrame = SDL_GetPerformanceCounter();
+		bool screenshot = false;
 
 		// Update the window surface
 		SDL_Surface* winSurf = SDL_GetWindowSurface(sdl.window);
@@ -652,7 +674,7 @@ void loop(sdl_t& sdl, Chip8& chip8)
 					break;
 				
 				case SDLK_BACKQUOTE:
-					shootScreenshot(winSurf);
+					screenshot = true;
 					break;
 				
 				// Map qwerty keys to CHIP8 keypad
@@ -749,12 +771,14 @@ void loop(sdl_t& sdl, Chip8& chip8)
 
 		SDL_BlitScaled(chip8Surf, NULL, winSurf, &chip8DisplayRect);
 
-
 		chip8.updateTimers();
 
 		drawInfo(winSurf, chip8);
 
 		SDL_UpdateWindowSurface(sdl.window);
+
+		if (screenshot)
+			shootScreenshot(sdl);
 	}
 }
 
