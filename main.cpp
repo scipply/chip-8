@@ -77,13 +77,13 @@ private:
 
 	bool m_reachedEmptyOpcode{false};
 	bool m_draw{true};									// Refresh the screen when true
-	std::array<bool, m_scrWidth*m_scrHeight> m_display{};	// Emulate the original display
+	std::array<bool, m_scrWidth*m_scrHeight> m_display{};// Emulate the original display
 	std::array<uint8_t, 4096>* m_ram = new std::array<uint8_t, 4096>{};
 	std::array<uint8_t, 16> m_V{};						// Data registers
 	std::array<uint32_t, 12> m_stack{};					// Stack memory for up to 12 addresses
-	uint32_t* m_pStack{&m_stack[0]};								// Stack pointer
+	uint32_t* m_pStack{&m_stack[0]};					// Stack pointer
 	uint16_t m_opcode{};								// The current opcode
-	uint16_t m_PC{0x200};									// Program counter
+	uint16_t m_PC{0x200};								// Program counter
 	uint16_t m_I{};										// Address register
 	uint8_t m_delayTimer{};								// Decrements at 60Hz while > 0
 	uint8_t m_soundTimer{};								// Decrements and beeps while > 0
@@ -440,18 +440,26 @@ public:
 		// Key inputs
 		case 0xE:
 			// If the key is pressed
-			if (NN == 0x9E && keypad[X] == m_V[X])
+			if (NN == 0x9E)
 			{
-				m_PC += 2;
-				DEBUG_LOG("Skipping if the key pressed is %01X", m_V[X]);
+				if (keypad[m_V[X]])
+				{
+					m_PC += 2;
+					DEBUG_LOG("Skipping if the key pressed is %01X", m_V[X]);
+				}
+				
 				break;
 			}
 			
 			// If the key is not pressed
-			if (NN == 0xA1 && keypad[X] != m_V[X])
+			if (NN == 0xA1)
 			{
-				m_PC += 2;
-				DEBUG_LOG("Skipping if the key pressed is not %01X", m_V[X]);
+				if (!keypad[m_V[X]])
+				{
+					m_PC += 2;
+					DEBUG_LOG("Skipping if the key pressed is not %01X", m_V[X]);
+				}
+				
 				break;
 			}
 			// If reaching this spot, the opcode is invalid
@@ -467,7 +475,6 @@ public:
 				DEBUG_LOG("Set V[%01X] to the clock timer %01X", X, m_V[X]);
 				break;
 			
-			// shhh not stolen
 			// Getting the keypresses
 			case 0x0A:
 			{
@@ -486,17 +493,8 @@ public:
                     }
 				
 				// If no key has been pressed yet, keep getting the current opcode & running this instruction
-                if (!keyPressed) m_PC -= 2; 
-                else 
-				{
-                    if (keypad[key]) m_PC -= 2;
-                    else 
-					{
-                        m_V[X] = key;
-                        key = 0xFF;
-                        keyPressed = false;
-                    }
-                }
+                if (!keyPressed)
+					m_PC -= 2;
 				break;
 			}
 			// setting the delay timer
