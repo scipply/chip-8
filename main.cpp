@@ -32,6 +32,7 @@ namespace Config
 	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
+	constexpr uint32_t beepIconColor = 0x00EECC00;
 }
 
 namespace Global
@@ -548,6 +549,22 @@ public:
 	}
 };
 
+// Drawing informational UI function
+void drawInfo(SDL_Surface* surf, Chip8& chip8)
+{
+	// Beeping
+	if (chip8.isBeeping())
+	{
+		// TODO: Maybe change this to smth actually nicer like an icon
+		// Currently it just makes a square in the top right corner of the
+		// chip 8 screen
+
+		SDL_Rect rect{.x=surf->w-32-4, .y=4, .w=32, .h=32};
+
+		SDL_FillRect(surf, &rect, Config::beepIconColor);
+	}
+}
+
 // Shotting screenshot function
 void shootScreenshot(SDL_Surface* surf)
 {
@@ -734,6 +751,8 @@ void loop(sdl_t& sdl, Chip8& chip8)
 
 
 		chip8.updateTimers();
+
+		drawInfo(winSurf, chip8);
 
 		SDL_UpdateWindowSurface(sdl.window);
 	}
