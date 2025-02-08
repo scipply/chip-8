@@ -29,8 +29,8 @@ namespace Config
 	constexpr uint32_t fgColor = 0x00098fe8;
 	constexpr int scaleFac = 18;
 	int normalClockSpeed = 601;
-	int maxClockSpeedMp = 3.0f;
-	int minClockSpeedMp = 0.25f;
+	float maxClockSpeedMp = 3.0f;
+	float minClockSpeedMp = 0.25f;
 	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
