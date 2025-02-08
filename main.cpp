@@ -25,13 +25,20 @@ namespace Config
 	const char* title = "CHIP8";
 	const char* ssDir = "screenshots";
     const char* ssPrefix = "Screenshot_CHIP-8";
-	constexpr uint32_t bgColor = 0x00101010;
-	constexpr uint32_t fgColor = 0x005080C0;
+	constexpr uint32_t bgColor = 0x00073ea6;
+	constexpr uint32_t fgColor = 0x00098fe8;
 	constexpr int scaleFac = 18;
-	int clockSpeed = 500;
+	int normalClockSpeed = 500;
 	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
+}
+
+namespace Global
+{
+	int clockSpeed = Config::normalClockSpeed;
+	int maxClockSpeedMp = 3.0f;
+	int minClockSpeedMp = 0.25f;
 }
 
 namespace Random
@@ -602,14 +609,29 @@ void loop(sdl_t& sdl, Chip8& chip8)
 					running = false;
 					break;
 				
-				case SDLK_KP_PLUS:
-					if (Config::clockSpeed < 50)
-						Config::clockSpeed += 50;
+				case SDLK_PERIOD:
+					if (Global::clockSpeed + 100 < Config::normalClockSpeed * Global::maxClockSpeedMp)
+						Global::clockSpeed += 100;
 					break;
 
-				case SDLK_KP_MINUS:
-					if (Config::clockSpeed >= 50)
-						Config::clockSpeed -= 50;
+				case SDLK_COMMA:
+					if (Global::clockSpeed - 100 > Config::normalClockSpeed * Global::minClockSpeedMp)
+						Global::clockSpeed -= 100;
+					break;
+				
+				case SDLK_0:
+					Global::clockSpeed = Config::normalClockSpeed;
+					break;
+				
+				case SDLK_SPACE:
+				if (Global::clockSpeed == 0)
+				{
+					Global::clockSpeed = Config::normalClockSpeed;
+					printf("+---Unpaused---+\n");
+					break;
+				}
+					Global::clockSpeed = 0;
+					printf("+---Paused---+\n");
 					break;
 				
 				case SDLK_BACKQUOTE:
@@ -676,7 +698,7 @@ void loop(sdl_t& sdl, Chip8& chip8)
 		bool screenRefreshed = false;
 
 		// Emulate instructions at a speed of 60hz
-		for (int i = 0; i < Config::clockSpeed / 60; i++)
+		for (int i = 0; i < Global::clockSpeed / 60; i++)
 		{
 			// Emulate a cycle
 			chip8.emulateCycle();
