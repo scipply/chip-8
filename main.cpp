@@ -504,7 +504,7 @@ public:
 				else
 				{
 					m_V[X] = key;
-					
+
 					keyPressed = false;
 					key = 0xFF;
 				}
@@ -793,6 +793,10 @@ void loop(sdl_t& sdl, Chip8& chip8)
 
 		if (screenshot)
 			shootScreenshot(sdl);
+		
+		// Cleanup (prob shouldve been put in the clean() function)
+		if (!running)
+			SDL_FreeSurface(chip8Surf);
 	}
 }
 
