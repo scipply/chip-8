@@ -28,7 +28,7 @@ namespace Config
 	constexpr uint32_t bgColor = 0x00073ea6;
 	constexpr uint32_t fgColor = 0x00098fe8;
 	constexpr int scaleFac = 18;
-	int normalClockSpeed = 500;
+	int normalClockSpeed = 601;
 	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
@@ -304,18 +304,21 @@ public:
 
 			case 0x1:
 				m_V[X] |= m_V[Y];
+				m_V[0xF] = 0;
 
 				DEBUG_LOG("V[%01X] |= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x2:
 				m_V[X] &= m_V[Y];
+				m_V[0xF] = 0;
 
 				DEBUG_LOG("V[%01X] &= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
 			case 0x3:
 				m_V[X] ^= m_V[Y];
+				m_V[0xF] = 0;
 
 				DEBUG_LOG("V[%01X] ^= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
@@ -336,9 +339,9 @@ public:
 				DEBUG_LOG("V[%01X] -= V[%01X] = %01X", X, Y, m_V[X]);
 				break;
 
-			case 0x6:
+			case 0x6:	
 				carry = m_V[X] & 1;
-				m_V[X] >>= 1;
+				m_V[X] = m_V[Y] >> 1;
 				m_V[0xF] = carry;
 
 				DEBUG_LOG("V[%01X] >>= 1 = %01X", X, m_V[X]);
@@ -354,7 +357,7 @@ public:
 
 			case 0xE:
 				carry = m_V[X] >> 7;
-				m_V[X] <<= 1;
+				m_V[X] = m_V[Y] <<1;
 				m_V[0xF] = carry;
 
 				DEBUG_LOG("V[%01X] <<= 1 = %01X", X, m_V[X]);
@@ -540,23 +543,25 @@ public:
 				DEBUG_LOG("Dumped the registers into the ram. The values are:");
 				for (uint8_t i = 0; i <= X; i++)
 				{
-					(*m_ram)[m_I+i] = m_V[i];
+					(*m_ram)[m_I++] = m_V[i];
 					DEBUG_LOG("V[%01X] = %01X", i, X);
 				}
+
 				break;
 			}
 
 			// Copying from ram to registers
 			case 0x65:
-				{				
-					DEBUG_LOG("Filled the registers with values from ram. The values are:");
-					for (uint8_t i = 0; i <= X; i++)
-					{
-						m_V[i] = (*m_ram)[m_I+i];
-						DEBUG_LOG("V[%01X] = %01X", i, X);
-					}
-					break;
+			{				
+				DEBUG_LOG("Filled the registers with values from ram. The values are:");
+				for (uint8_t i = 0; i <= X; i++)
+				{
+					m_V[i] = (*m_ram)[m_I++];
+					DEBUG_LOG("V[%01X] = %01X", i, X);
 				}
+
+				break;
+			}
 			}
 			break;
 
