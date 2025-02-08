@@ -1,10 +1,11 @@
 #include <array>
-#include <vector>
-#include <fstream>
 #include <random>
-#include <stdio.h>	// the debug runtime logger
+#include <fstream>
+#include <filesystem>
+#include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 #include "SDL2/SDL.h"
 
@@ -14,8 +15,6 @@
     #define DEBUG_LOG(fmt, ...)
 #endif
 
-// TODO: Use threads so the chip can run separately from the main window
-
 struct sdl_t
 {
 	SDL_Window* window;
@@ -24,10 +23,12 @@ struct sdl_t
 namespace Config
 {
 	const char* title = "CHIP8";
+	const char* ssDir = "screenshots";
+    const char* ssPrefix = "Screenshot_CHIP-8";
 	constexpr uint32_t bgColor = 0x00101010;
 	constexpr uint32_t fgColor = 0x005080C0;
 	constexpr int scaleFac = 18;
-	[[maybe_unused]] int clockSpeed = 500;
+	int clockSpeed = 500;
 	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
@@ -540,6 +541,33 @@ public:
 	}
 };
 
+// Shotting screenshot function
+void shootScreenshot(SDL_Surface* surf)
+{
+	if (!std::filesystem::exists(Config::ssDir))
+		if (!std::filesystem::create_directory(Config::ssDir))
+		{
+			SDL_Log("Failed to create directory \"%s\"!", Config::ssDir);
+			return;
+		}
+
+    // Buffer for the final file path
+    char ssPath[256];
+    char buffer[64];
+    time_t tm;
+    struct tm* tmInfo;
+
+    time(&tm);
+    tmInfo = localtime(&tm);
+    strftime(buffer, sizeof(buffer), "%d_%m_%Y_%H-%M-%S", tmInfo);
+
+    snprintf(ssPath, sizeof(ssPath), "%s/%s_%s.bmp", Config::ssDir, Config::ssPrefix, buffer);
+
+	SDL_SaveBMP(surf, ssPath);
+
+    SDL_Log("Saved screenshot to \"%s\"\n", ssPath);
+}
+
 // Main loop function
 void loop(sdl_t& sdl, Chip8& chip8)
 {
@@ -575,10 +603,17 @@ void loop(sdl_t& sdl, Chip8& chip8)
 					break;
 				
 				case SDLK_KP_PLUS:
-					Config::clockSpeed += 50;
+					if (Config::clockSpeed < 50)
+						Config::clockSpeed += 50;
 					break;
+
 				case SDLK_KP_MINUS:
-					Config::clockSpeed -= 50;
+					if (Config::clockSpeed >= 50)
+						Config::clockSpeed -= 50;
+					break;
+				
+				case SDLK_BACKQUOTE:
+					shootScreenshot(winSurf);
 					break;
 				
 				// Map qwerty keys to CHIP8 keypad
@@ -601,7 +636,7 @@ void loop(sdl_t& sdl, Chip8& chip8)
 				case SDLK_x: chip8.keypad[0x0] = true; break;
 				case SDLK_c: chip8.keypad[0xB] = true; break;
 				case SDLK_v: chip8.keypad[0xF] = true; break;
-
+				
 				default: break;
                 }
 
@@ -675,18 +710,6 @@ void loop(sdl_t& sdl, Chip8& chip8)
 
 		SDL_BlitScaled(chip8Surf, NULL, winSurf, &chip8DisplayRect);
 
-		// Beeping
-		if (chip8.isBeeping())
-		{
-			// TODO: Maybe change this to smth actually nicer like an icon
-			// Currently it just makes a square in the top right corner of the
-			// chip 8 screen
-
-			SDL_Rect beepIconRect{.x=chip8Surf->w-32-4, .y=4, .w=32, .h=32};
-
-			// 0x00AAAA55 should be yellow
-			SDL_FillRect(winSurf, &beepIconRect, 0x00EECC00);
-		}
 
 		chip8.updateTimers();
 
