@@ -9,6 +9,7 @@
 
 #include "SDL2/SDL.h"
 
+// TODO: change this to probably a real function that doesnt exist in release
 #ifdef DEBUG
     #define DEBUG_LOG(fmt, ...) printf("[DBG] " fmt "\n", ##__VA_ARGS__)
 #else
@@ -31,9 +32,9 @@ namespace Config
 	int normalClockSpeed = 601;
 	float maxClockSpeedMp = 3.0f;
 	float minClockSpeedMp = 0.25f;
-	bool useBeepSound = true;
 	char* romPath{};
 	[[maybe_unused]] const char* beepSoundPath{"beep.wav"};
+	bool useBeepSound = false;	// uhh why it cant be maybe_unused?
 	constexpr uint32_t beepIconColor = 0x00EECC00;
 }
 
@@ -75,7 +76,6 @@ private:
 		0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 	};
 
-	bool m_reachedEmptyOpcode{false};
 	bool m_draw{true};									// Refresh the screen when true
 	std::array<bool, m_scrWidth*m_scrHeight> m_display{};// Emulate the original display
 	std::array<uint8_t, 4096>* m_ram = new std::array<uint8_t, 4096>{};
@@ -210,6 +210,7 @@ public:
 				DEBUG_LOG("Cleared the screen");
 				break;
 			}
+			// Return to subroutine NN
 			if (NN == 0xEE)
 			{
 				// CAN I PUT MY BALLS IN YOUR JAWS, "--"?
@@ -218,15 +219,15 @@ public:
 				DEBUG_LOG("Returned to subroutine 0x%04X", m_PC);
 				break;
 			}
+			// Empty opcode
 			if (NNN == 0x000)
 			{
 				// This is for when trying to use opcode 0x0000 which might be 
 				// just the empty ram
 
 				SDL_Log("Tried executing opcode 0x0000 but this might be just the empty ram\n");
-				SDL_Log("\n\nPC=%04x *pStack=%X OC=%04x\n\n", m_PC, *m_pStack, m_opcode);
+				SDL_Log("\tPC=0x%04x *pStack=%X \n", m_PC, *m_pStack);
 				
-				//m_reachedEmptyOpcode = true;
 				break;
 			}
 
@@ -270,9 +271,9 @@ public:
 			// be a corrupted rom
 			if (N != 0)
 			{
-				SDL_Log("Opcode 0x%04X might be invalid. V[%01X] == V[%01X] will not be evaluated!\n",
+				SDL_Log("Opcode 0x%04X is wrong. V[%01X] == V[%01X] will not be evaluated!\n",
 						m_opcode, X, Y);
-						break;
+						break;	
 			}
 			if (m_V[X] == m_V[Y])
 				m_PC += 2;
@@ -296,71 +297,80 @@ public:
 		case 0x8:
 			switch (N)
 			{
+			// Set Vx = Vy
 			case 0x0:
 				m_V[X] = m_V[Y];
 
-				DEBUG_LOG("V[%01X] = V[%01X] = %01X", X, Y, m_V[X]);
+				DEBUG_LOG("V[%01X] = V[%01X] == 0x%01X", X, Y, m_V[X]);
 				break;
-
+			
+			// Set Vx |= Vy
 			case 0x1:
 				m_V[X] |= m_V[Y];
 				m_V[0xF] = 0;
 
-				DEBUG_LOG("V[%01X] |= V[%01X] = %01X", X, Y, m_V[X]);
+				DEBUG_LOG("V[%01X] |= V[%01X] == 0x%01X", X, Y, m_V[X]);
 				break;
 
+			// Set Vx &= Vy
 			case 0x2:
 				m_V[X] &= m_V[Y];
 				m_V[0xF] = 0;
 
-				DEBUG_LOG("V[%01X] &= V[%01X] = %01X", X, Y, m_V[X]);
+				DEBUG_LOG("V[%01X] &= V[%01X] == 0x%01X", X, Y, m_V[X]);
 				break;
-
+			
+			// Set Vx ^= Vy
 			case 0x3:
 				m_V[X] ^= m_V[Y];
 				m_V[0xF] = 0;
 
-				DEBUG_LOG("V[%01X] ^= V[%01X] = %01X", X, Y, m_V[X]);
+				DEBUG_LOG("V[%01X] ^= V[%01X] == 0x%01X", X, Y, m_V[X]);
 				break;
-
+			
+			// Set Vx += Vy and VF to true if carry
 			case 0x4:
 				carry = (static_cast<uint16_t>(m_V[X]) + m_V[Y]) > 255;
 				m_V[X] += m_V[Y];
 				m_V[0xF] = carry;
 
-				DEBUG_LOG("V[%01X] += V[%01X] = %01X", X, Y, m_V[X]);
+				DEBUG_LOG("V[%01X] += V[%01X] == 0x%01X", X, Y, m_V[X]);
 				break;
 
+			// Set Vx -= Vy and VF if no borrow
 			case 0x5:
 				carry = m_V[X] >= m_V[Y];
 				m_V[X] -= m_V[Y];
 				m_V[0xF] = carry;
 
-				DEBUG_LOG("V[%01X] -= V[%01X] = %01X", X, Y, m_V[X]);
+				DEBUG_LOG("V[%01X] -= V[%01X] == 0x%01X", X, Y, m_V[X]);
 				break;
 
-			case 0x6:	
-				carry = m_V[X] & 1;
+			// Set Vx >>= 1 and VF to the lost bit
+			case 0x6:
+				carry = m_V[Y] & 1;
 				m_V[X] = m_V[Y] >> 1;
 				m_V[0xF] = carry;
 
-				DEBUG_LOG("V[%01X] >>= 1 = %01X", X, m_V[X]);
+				DEBUG_LOG("V[%01X] >>= 1 == 0x%01X", X, m_V[X]);
 				break;
 
+			// Set Vx = Vy - Vx and VF if no borrow
 			case 0x7:
 				carry = m_V[X] <= m_V[Y];
 				m_V[X] = m_V[Y] - m_V[X];
 				m_V[0xF] = carry;
 
-				DEBUG_LOG("V[%01X] = V[%01X] - V[%01X] = %01X", X, Y, X, m_V[X]);
+				DEBUG_LOG("V[%01X] = V[%01X] - V[%01X] == 0x%01X", X, Y, X, m_V[X]);
 				break;
 
+			// Set Vx <<= 1 and store the lost bit in VF
 			case 0xE:
-				carry = m_V[X] >> 7;
-				m_V[X] = m_V[Y] <<1;
+				carry = m_V[Y] >> 7;
+				m_V[X] = m_V[Y] << 1;
 				m_V[0xF] = carry;
 
-				DEBUG_LOG("V[%01X] <<= 1 = %01X", X, m_V[X]);
+				DEBUG_LOG("V[%01X] <<= 1 == 0x%01X", X, m_V[X]);
 				break;
 			
 			default:
@@ -373,7 +383,7 @@ public:
 		case 0x9:
 			if (N != 0)
 			{
-				SDL_Log("Opcode 0x%04X might be invalid. V[%01X] == V[%01X] will not be evaluated!\n",
+				SDL_Log("Opcode 0x%04X is wrong. V[%01X] != V[%01X] will not be evaluated!\n",
 						m_opcode, X, Y);
 						break;
 			}
@@ -386,18 +396,22 @@ public:
 		// Set I to address NNN
 		case 0xA:
 			m_I = NNN;
+
 			DEBUG_LOG("I set to the address 0x%04X", NNN);
 			break;
 
 		// Jumping to address NNN + V0
 		case 0xB:
 			m_PC = m_V[0] + NNN;
+
 			DEBUG_LOG("Jumping to address 0x%04X + V[0]", NNN);
 			break;
 		
-		// Random generator
+		// Random number generator
 		case 0xC:
 			m_V[X] = Random::get(0, 255) & NN;
+
+			DEBUG_LOG("Generating a random number for V[%01X] and then do bitwise AND with 0x%02X", X, NN);
 			break;
 		
 		// Draw at position X and Y with the N height
@@ -410,11 +424,13 @@ public:
 			m_V[0xF] = 0;
 
 			constexpr uint8_t spriteWidth = 8;
+
 			// For each row(basically drawing on Y axis)
 			for (int i = 0; i < N; i++)
 			{
 				const uint8_t sprite = (*m_ram)[m_I+i];
 				xCoord = origin;
+
 				for (int j = spriteWidth - 1; j >= 0; j--)
 				{
 					bool& pixel = m_display[xCoord+(m_scrWidth*yCoord)];
@@ -446,11 +462,9 @@ public:
 			if (NN == 0x9E)
 			{
 				if (keypad[m_V[X]])
-				{
 					m_PC += 2;
-					DEBUG_LOG("Skipping if the key pressed is %01X", m_V[X]);
-				}
 				
+				DEBUG_LOG("Skipping if the key pressed is %01X", m_V[X]);
 				break;
 			}
 			
@@ -458,11 +472,9 @@ public:
 			if (NN == 0xA1)
 			{
 				if (!keypad[m_V[X]])
-				{
 					m_PC += 2;
-					DEBUG_LOG("Skipping if the key pressed is not %01X", m_V[X]);
-				}
 				
+				DEBUG_LOG("Skipping if the key pressed is not %01X", m_V[X]);
 				break;
 			}
 			// If reaching this spot, the opcode is invalid
@@ -473,6 +485,7 @@ public:
 		case 0xF:
 			switch (NN)
 			{
+			// Set Vx = delay timer
 			case 0x07:
 				m_V[X] = m_delayTimer;
 				DEBUG_LOG("Set V[%01X] to the clock timer %01X", X, m_V[X]);
@@ -511,13 +524,13 @@ public:
 				
 				break;
 			}
-			// setting the delay timer
+			// Set delay timer = Vx
 			case 0x15:
 				m_delayTimer = m_V[X];
 				DEBUG_LOG("Set the delay timer of %01X to V[%01X]", m_V[X], X);
 				break;
 
-			// Setting the sound timer
+			// Set sound timer = Vx
 			case 0x18:
 				m_soundTimer = m_V[X];
 				DEBUG_LOG("Set the sound timer of %01X to V[%01X]", m_V[X], X);
@@ -526,15 +539,16 @@ public:
 			// Adds Vx to I
 			case 0x1E:
 				m_I += m_V[X];
-				DEBUG_LOG("I += V[%01X] = %01X", X, m_V[X]);
+				DEBUG_LOG("I += V[%01X] == 0x%01X", X, m_V[X]);
 				break;
 
 			// Sets I to the sprite location for the char in Vx
 			case 0x29:
 				m_I = m_V[X] * 5;
-				DEBUG_LOG("I = V[%01X] * 5 = %01X", X, m_V[X]);
+				DEBUG_LOG("I = V[%01X] * 5 == 0x%01X", X, m_V[X]);
 				break;
 
+			// Binary to decimal conversion
 			case 0x33:
 			{
 				uint8_t BCD = m_V[X];
@@ -548,14 +562,15 @@ public:
 				break;
 			}
 
-			// Dumping the registers to the ram
+			// Dumping the registers from F0 - Vx inclusive
 			case 0x55:
 			{
-				DEBUG_LOG("Dumped the registers into the ram. The values are:");
+				DEBUG_LOG("Dumped the registers up to 0x%02X (inclusive) into the ram. The values are:", X);
+
 				for (uint8_t i = 0; i <= X; i++)
 				{
 					(*m_ram)[m_I++] = m_V[i];
-					DEBUG_LOG("V[%01X] = %01X", i, X);
+					DEBUG_LOG("\tV[%01X] = %01X", i, X);
 				}
 
 				break;
@@ -564,11 +579,12 @@ public:
 			// Copying from ram to registers
 			case 0x65:
 			{				
-				DEBUG_LOG("Filled the registers with values from ram. The values are:");
+				DEBUG_LOG("Filled the registers up to 0x%02X (inclusive) with values from ram. The values are:", X);
+
 				for (uint8_t i = 0; i <= X; i++)
 				{
 					m_V[i] = (*m_ram)[m_I++];
-					DEBUG_LOG("V[%01X] = %01X", i, X);
+					DEBUG_LOG("\tV[%01X] = %01X", i, X);
 				}
 
 				break;
@@ -803,6 +819,8 @@ void loop(sdl_t& sdl, Chip8& chip8)
 // Startup arguments handler function
 bool handleArgs(const int argc, char* argv[])
 {
+	// TODO: add more args
+
 	if (argc < 2)
 	{
 		SDL_Log("Usage: %s <rom name>\n", argv[0]);
