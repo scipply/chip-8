@@ -510,7 +510,7 @@ public:
 				
 				// If no key has been pressed yet or it is held, keep getting 
 				// the current opcode
-				if (!keyPressed || !keypad[key])
+				if (!keyPressed || keypad[key])
 				{
 					m_PC -= 2;
 				}
